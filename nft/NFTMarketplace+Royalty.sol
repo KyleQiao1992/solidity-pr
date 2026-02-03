@@ -4,6 +4,14 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+
+interface IERC2981 is IERC165 {
+    function royaltyInfo(
+        uint256 tokenId,
+        uint256 salePrice
+    ) external view returns (address receiver, uint256 royaltyAmount);
+}
 
 /**
  * @title NFTMarketplace
@@ -119,6 +127,13 @@ contract NFTMarketplace is ReentrancyGuard {
 
         listing.active = false;
 
+        // 获取版税信息
+        (address royaltyReceiver, uint256 royaltyAmount) = _getRoyaltyInfo(
+            listing.nftContract,
+            listing.tokenId,
+            listing.price
+        );
+
         //平台手续费是售价的2.5%
         uint256 fee = (listing.price * platformFee) / 10000;
         //卖家实际收到的金额是售价减去手续费
@@ -133,7 +148,14 @@ contract NFTMarketplace is ReentrancyGuard {
         );
 
         //资金分配
-        //首先将卖家应得的金额转给卖家，然后转平台手续费。所有的转账都使用低级call，并检查返回值，确保转账成功
+        // 资金分配顺序：版税 -> 平台手续费 -> 卖家收益
+        //这个顺序很重要，确保创作者能够优先获得收益
+        //如果不支持，版税金额就是0，不影响正常的交易流程
+        if(royaltyAmount > 0 && royaltyReceiver != address(0)){ {
+           (bool successRoyaltyReceiver, ) =rotaryReceiver.call{value: royaltyAmount}("");
+           require(successRoyaltyReceiver,"Royalty transfer failed");
+        }
+
         (bool successSeller, ) = listing.seller.call{value: sellerAmount}("");
         require(successSeller, "Transfer to seller failed");
 
@@ -149,5 +171,23 @@ contract NFTMarketplace is ReentrancyGuard {
         }
 
         emit NFTSold(ListingId, msg.sender, listing.seller, listing.price);
+    }
+
+    function _getRoyaltyInfo(
+        address nftContract,
+        uint256 tokenId,
+        uint256 salePrice
+    ) internal view returns (address receiver, uint256 royaltyAmount) {
+        if (
+            IERC165(nftContract).supportsInterface(type(IERC2981).interfaceId)
+        ) {
+            (receiver, royaltyAmount) = IERC2981(nftContract).royaltyInfo(
+                tokenId,
+                salePrice
+            );
+        } else {
+            receiver = address(0);
+            royaltyAmount = 0;
+        }
     }
 }
