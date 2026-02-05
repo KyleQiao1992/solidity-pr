@@ -15,7 +15,8 @@ contract LogicalContract {
     
     // 获取值的函数
     function getValue() external view returns (uint256) {
-        return value
+        return value;
+    }
 }
 
 

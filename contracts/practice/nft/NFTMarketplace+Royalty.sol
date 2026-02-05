@@ -151,9 +151,11 @@ contract NFTMarketplace is ReentrancyGuard {
         // 资金分配顺序：版税 -> 平台手续费 -> 卖家收益
         //这个顺序很重要，确保创作者能够优先获得收益
         //如果不支持，版税金额就是0，不影响正常的交易流程
-        if(royaltyAmount > 0 && royaltyReceiver != address(0)){ {
-           (bool successRoyaltyReceiver, ) =rotaryReceiver.call{value: royaltyAmount}("");
-           require(successRoyaltyReceiver,"Royalty transfer failed");
+        if (royaltyAmount > 0 && royaltyReceiver != address(0)) {
+            (bool successRoyaltyReceiver, ) = royaltyReceiver.call{
+                value: royaltyAmount
+            }("");
+            require(successRoyaltyReceiver, "Royalty transfer failed");
         }
 
         (bool successSeller, ) = listing.seller.call{value: sellerAmount}("");

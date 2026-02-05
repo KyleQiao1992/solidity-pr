@@ -39,7 +39,7 @@ contract CrowdFudingV2 {
     event GoalReached(uint256 totalAmount);
     event Withdrawal(address indexed owner, uint256 amount);
     event Refund(address indexed contributor, uint256 amount);
-    event RefundFailed(
+    event RefundTransferFailed(
         address indexed contributor,
         uint256 amount,
         string reason
@@ -59,8 +59,8 @@ contract CrowdFudingV2 {
 
     // ============ 构造函数 ============
     constructor(uint256 _goal, uint256 _duration) {
-        require(_goal > 0, "目标金额必须大于0");
-        require(_duration > 0, "持续时间必须大于0");
+        require(_goal > 0, "Goal must be greater than 0");
+        require(_duration > 0, "Duration must be greater than 0");
         
         owner = msg.sender;
         goal = _goal;
@@ -84,8 +84,8 @@ contract CrowdFudingV2 {
 
     function endCampaign() public onlyOwner campaignActive {
         // 检查时间
-        require(block.timestamp >= deadline, "众筹尚未结束");
-        require(!ended, "众筹已经结束");
+        require(block.timestamp >= deadline, "Campaign not ended");
+        require(!ended, "Campaign already ended");
         
         ended = true;
         
@@ -99,11 +99,11 @@ contract CrowdFudingV2 {
      */
     function withdraw() public onlyOwner {
         // 1. Checks
-        require(ended, "众筹尚未结束");
-        if (!goalReached) revert GoalNotReached(totalRaised, goal);
+        require(ended, "Campaign not ended");
+        if (!goalReached) revert GoalNotReached(totalRaided, goal);
         
         uint256 amount = address(this).balance;
-        require(amount > 0, "没有可提取的资金");
+        require(amount > 0, "No funds to withdraw");
         
         // 2. Effects: 清空余额（防止重入）
         // 注意：这里简化处理，实际应该更细致
@@ -120,11 +120,11 @@ contract CrowdFudingV2 {
      */
     function refund() public {
         // 1. Checks
-        require(ended, "众筹尚未结束");
+        require(ended, "Campaign not ended");
         if (goalReached) revert GoalAlreadyReached();
         
         uint256 amount = contributions[msg.sender];
-        require(amount > 0, "没有贡献");
+        require(amount > 0, "No contribution");
         
         if (refunded[msg.sender]) revert AlreadyRefunded(msg.sender);
         
@@ -148,8 +148,8 @@ contract CrowdFudingV2 {
      * @notice 批量退款（仅所有者，用于紧急情况）
      */
     function batchRefund(address[] memory contributors) public onlyOwner {
-        require(ended, "众筹尚未结束");
-        require(!goalReached, "目标已达成，不能退款");
+        require(ended, "Campaign not ended");
+        require(!goalReached, "Goal reached, cannot refund");
         
         for (uint256 i = 0; i < contributors.length; i++) {
             address contributor = contributors[i];
@@ -172,7 +172,11 @@ contract CrowdFudingV2 {
                 // 退款失败，恢复状态并记录
                 contributions[contributor] = amount;
                 refunded[contributor] = false;
-                emit RefundFailed(contributor, amount, "Transfer failed");
+                emit RefundTransferFailed(
+                    contributor,
+                    amount,
+                    "Transfer failed"
+                );
             }
         }
     }

@@ -12,6 +12,7 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.19.8",
     "chai": "^5.3.3",
+    "dotenv": "^17.2.3",
     "ethers": "^6.16.0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.4",
     "hardhat": "^3.1.6",
@@ -32,5 +33,8 @@
     "url": "https://github.com/KyleQiao1992/solidity-pr/issues"
   },
   "homepage": "https://github.com/KyleQiao1992/solidity-pr#readme",
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0"
+  }
 }
